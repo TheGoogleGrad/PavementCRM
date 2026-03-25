@@ -95,6 +95,13 @@
   .btn-accent:hover { background: #1e5530; }
   .btn-signout { background: none; border: 1px solid var(--border); color: var(--text3); padding: 5px 10px; border-radius: 5px; font-size: 11px; cursor: pointer; }
   .btn-signout:hover { color: var(--nocall); border-color: var(--nocall); }
+  .view-toggle { display: flex; border: 1px solid var(--border2); border-radius: 6px; overflow: hidden; }
+  .vt-btn { padding: 5px 12px; font-size: 11px; font-weight: 500; cursor: pointer; border: none; background: none; color: var(--text3); transition: all 0.12s; white-space: nowrap; }
+  .vt-btn:hover { background: var(--surface2); color: var(--text2); }
+  .vt-btn.active { background: var(--accent); color: #fff; }
+  .owner-badge { display: inline-block; font-size: 9px; font-weight: 600; padding: 1px 6px; border-radius: 99px; margin-left: 5px; text-transform: uppercase; letter-spacing: 0.3px; vertical-align: middle; }
+  .ob-mine { background: rgba(42,110,63,0.12); color: var(--accent); }
+  .ob-other { background: rgba(26,95,168,0.10); color: var(--contacted); }
 
   /* ── Main ── */
   .main { display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; background: var(--bg); }
@@ -172,8 +179,32 @@
   .btn-muted:hover { color: var(--text2); }
   .stage-sel { background: #fff; border: 1px solid var(--border2); color: var(--text); border-radius: 5px; padding: 5px 8px; font-size: 12px; cursor: pointer; font-family: var(--font); }
   .stage-sel:focus { outline: none; border-color: var(--accent); }
+
+  /* Editable fields */
+  .edit-field {
+    width: 100%; padding: 6px 8px; border: 1px solid transparent;
+    border-radius: 5px; font-size: 13px; font-weight: 500; color: var(--text);
+    background: transparent; font-family: var(--font); transition: all 0.15s;
+    cursor: text;
+  }
+  .edit-field:hover { border-color: var(--border2); background: #fff; }
+  .edit-field:focus { outline: none; border-color: var(--accent); background: #fff; box-shadow: 0 0 0 3px rgba(42,110,63,0.08); }
+  .edit-field.saving { border-color: var(--accent); opacity: 0.7; }
+  textarea.edit-field { resize: vertical; min-height: 70px; line-height: 1.5; font-weight: 400; }
+  .ef-wrap { position: relative; }
+  .ef-hint { font-size: 10px; color: var(--text3); margin-top: 3px; display: none; }
+  .edit-field:focus ~ .ef-hint { display: block; }
   .chev { font-size: 9px; color: var(--text3); margin-right: 4px; display: inline-block; transition: transform 0.15s; }
   .chev.o { transform: rotate(90deg); }
+
+  /* Property images */
+  .prop-images { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .prop-img-wrap { position: relative; background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; overflow: hidden; aspect-ratio: 16/9; }
+  .prop-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .prop-img-label { position: absolute; bottom: 0; left: 0; right: 0; padding: 5px 10px; background: rgba(0,0,0,0.5); color: #fff; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .prop-img-placeholder { width: 100%; height: 100%; min-height: 120px; display: flex; align-items: center; justify-content: center; color: var(--text3); font-size: 11px; }
+  .prop-open-link { position: absolute; top: 7px; right: 7px; background: rgba(0,0,0,0.5); color: #fff; font-size: 10px; padding: 3px 8px; border-radius: 4px; text-decoration: none; font-weight: 500; }
+  .prop-open-link:hover { background: rgba(0,0,0,0.75); }
 
   /* Pager */
   .pager { padding: 10px 24px; border-top: 1px solid var(--border2); display: flex; align-items: center; gap: 10px; justify-content: flex-end; background: var(--surface); }
@@ -248,6 +279,11 @@
       <div class="top-stat"><div class="top-stat-val stat-nocall" id="s-nocall">—</div><div class="top-stat-label">No Call</div></div>
     </div>
     <div class="top-right">
+      <div class="view-toggle" id="view-toggle">
+        <button class="vt-btn active" id="vt-mine" onclick="setView('mine')">My contacts</button>
+        <button class="vt-btn" id="vt-team" onclick="setView('team')">Team</button>
+        <button class="vt-btn" id="vt-all" onclick="setView('all')">All</button>
+      </div>
       <span class="user-chip" id="user-chip"></span>
       <button class="btn btn-ghost" onclick="showUpload()">+ Import Excel</button>
       <button class="btn-signout" onclick="doSignOut()">Sign out</button>
@@ -323,6 +359,27 @@ const SKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZ
 const { createClient } = supabase;
 const sb = createClient(SURL, SKEY);
 
+
+// ── Google Maps ──
+const GMAPS_KEY = 'AIzaSyBWBbEgn2L0d4e2SibwTvXRXIwSxl7Dqf0';
+
+function propImagesHtml(address, city) {
+  const fullAddr = encodeURIComponent((address + ', ' + city));
+  const mapsLink = 'https://www.google.com/maps/search/?api=1&query=' + fullAddr;
+  const svUrl = 'https://maps.googleapis.com/maps/api/streetview?size=600x340&location=' + fullAddr + '&key=' + GMAPS_KEY + '&return_error_code=true';
+  const satUrl = 'https://maps.googleapis.com/maps/api/staticmap?center=' + fullAddr + '&zoom=17&size=600x340&maptype=satellite&key=' + GMAPS_KEY;
+  return '<div class="prop-images">' +
+    '<div class="prop-img-wrap">' +
+    '<img src="' + svUrl + '" alt="Street View" onerror="this.style.display='none';this.nextSibling.style.display='flex'" loading="lazy">' +
+    '<div class="prop-img-placeholder" style="display:none">No street view available</div>' +
+    '<div class="prop-img-label">Street view</div>' +
+    '<a class="prop-open-link" href="' + mapsLink + '" target="_blank" onclick="event.stopPropagation()">Open in Maps u2197</a>' +
+    '</div>' +
+    '<div class="prop-img-wrap">' +
+    '<img src="' + satUrl + '" alt="Satellite" loading="lazy">' +
+    '<div class="prop-img-label">Satellite</div>' +
+    '</div></div>';
+}
 // ── Auth ──
 async function doLogin() {
   const email = document.getElementById('login-email').value.trim();
@@ -344,20 +401,34 @@ async function doSignOut() {
 
 sb.auth.onAuthStateChange((event, session) => {
   if (session) {
+    currentUserId = session.user.id;
     document.getElementById('login-screen').classList.remove('show');
     document.getElementById('app').classList.add('show');
     document.getElementById('user-chip').textContent = session.user.email;
     loadContacts();
   } else {
+    currentUserId = null;
     document.getElementById('login-screen').classList.add('show');
     document.getElementById('app').classList.remove('show');
-    allContacts = []; filtered = [];
+    allContacts = []; allTeamContacts = []; filtered = [];
   }
 });
 
 // ── State ──
 const PERPAGE = 50;
 let allContacts = [], filtered = [], expanded = new Set(), page = 0, sortCol = '', sortDir = 1;
+let currentView = 'mine';
+let currentUserId = null;
+let allTeamContacts = [];
+
+function setView(v) {
+  currentView = v;
+  ['mine','team','all'].forEach(k => {
+    const el = document.getElementById('vt-'+k);
+    if(el) el.classList.toggle('active', k === v);
+  });
+  go();
+}
 
 // ── Load data ──
 async function loadContacts() {
@@ -371,7 +442,8 @@ async function loadContacts() {
       if (data.length < 1000) break;
       offset += 1000;
     }
-    allContacts = all;
+    allTeamContacts = all;
+    allContacts = all.filter(r => !r.user_id || r.user_id === currentUserId);
     buildCityFilter();
     updateStats();
     go();
@@ -381,14 +453,36 @@ async function loadContacts() {
 }
 
 async function updateStage(id, stage) {
+  const c = allTeamContacts.find(x => x.id === id);
+  if (c && c.user_id && c.user_id !== currentUserId) { toast('Cannot edit team contacts'); return; }
   const { error } = await sb.from('contacts').update({ stage }).eq('id', id);
   if (!error) {
-    const c = allContacts.find(x => x.id === id);
     if (c) c.stage = stage;
+    const mine = allContacts.find(x => x.id === id);
+    if (mine) mine.stage = stage;
     updateStats();
     render();
     toast('Saved');
   } else { toast('Error saving'); }
+}
+
+async function updateField(id, field, value, el) {
+  const c = allTeamContacts.find(x => x.id === id);
+  if (c && c.user_id && c.user_id !== currentUserId) {
+    toast('Cannot edit team contacts');
+    if (el) el.disabled = false;
+    return;
+  }
+  if (el) { el.classList.add('saving'); el.disabled = true; }
+  const update = { [field]: field === 'units' ? (parseInt(value) || 0) : value };
+  const { error } = await sb.from('contacts').update(update).eq('id', id);
+  if (!error) {
+    if (c) c[field] = update[field];
+    const mine = allContacts.find(x => x.id === id);
+    if (mine) mine[field] = update[field];
+    toast('Saved');
+  } else { toast('Error saving'); }
+  if (el) { el.classList.remove('saving'); el.disabled = false; }
 }
 
 // ── Helpers ──
@@ -403,7 +497,12 @@ function applyFilters() {
   const fc=document.getElementById('fcity').value;
   const fs=document.getElementById('fstage').value;
   const fu=document.getElementById('funits').value;
-  filtered=allContacts.filter(r=>{
+  const base = currentView === 'mine'
+    ? allTeamContacts.filter(r => !r.user_id || r.user_id === currentUserId)
+    : currentView === 'team'
+    ? allTeamContacts.filter(r => r.user_id && r.user_id !== currentUserId)
+    : allTeamContacts;
+  filtered=base.filter(r=>{
     if(q&&!['address','owner','city','notes'].some(k=>(r[k]||'').toLowerCase().includes(q)))return false;
     if(fc&&r.city!==fc)return false;
     if(fs&&r.stage!==fs)return false;
@@ -452,7 +551,7 @@ function render() {
     const dr=`<tr class="dr s-${sc(r.stage)}${isOpen?' open':''}" onclick="toggle(${r.id})">
       <td style="padding-left:10px"><span class="chev${isOpen?' o':''}">▶</span></td>
       <td style="color:var(--text3);font-size:11px">${page*PERPAGE+i+1}</td>
-      <td style="font-weight:500">${r.address||''}</td>
+      <td style="font-weight:500">${r.address||''}${currentView==='all'?(r.user_id===currentUserId?'<span class="owner-badge ob-mine">mine</span>':'<span class="owner-badge ob-other">team</span>'):''}${'</td>'}
       <td style="color:var(--text2)">${r.city||''}</td>
       <td style="overflow:hidden;text-overflow:ellipsis">${r.owner||'—'}</td>
       <td style="text-align:center;color:var(--text2)">${r.units||'—'}</td>
@@ -462,24 +561,56 @@ function render() {
       <td style="color:var(--text3);font-size:11px">${np}</td>
     </tr>`;
     if(!isOpen)return[dr];
+    const ef=(field, label, value, type='text')=>{
+      const val = value || '';
+      if(type==='textarea') return `<div class="ef" style="grid-column:span 2">
+        <div class="el">${label}</div>
+        <div class="ef-wrap">
+          <textarea class="edit-field" rows="3"
+            onclick="event.stopPropagation()"
+            onblur="updateField(${r.id},'${field}',this.value,this)"
+          >${val}</textarea>
+          <div class="ef-hint">Click away to save</div>
+        </div></div>`;
+      return `<div class="ef">
+        <div class="el">${label}</div>
+        <div class="ef-wrap">
+          <input type="${type}" class="edit-field" value="${val.replace(/"/g,'&quot;')}"
+            onclick="event.stopPropagation()"
+            onblur="updateField(${r.id},'${field}',this.value,this)"
+            onkeydown="if(event.key==='Enter'){this.blur();}"
+          >
+          <div class="ef-hint">Enter to save</div>
+        </div></div>`;
+    };
+    const stageOpts=['New','Warm','Contacted','Broker','No Call','Untagged'].map(s=>`<option${r.stage===s?' selected':''}>${s}</option>`).join('');
     const er=`<tr class="er"><td colspan="10"><div class="ei">
-      <div class="eg">
-        <div class="ef"><div class="el">Owner</div><div class="ev">${r.owner||'—'}</div></div>
-        ${r.phone?`<div class="ef"><div class="el">Phone</div><div class="ev">${r.phone}</div></div>`:''}
-        ${r.cell?`<div class="ef"><div class="el">Cell</div><div class="ev">${r.cell}</div></div>`:''}
-        ${r.email?`<div class="ef"><div class="el">Email</div><div class="ev link">${r.email}</div></div>`:''}
-        <div class="ef"><div class="el">Units</div><div class="ev">${r.units||'—'}</div></div>
-        <div class="ef"><div class="el">Assessed</div><div class="ev">${fmt(r.total_val)}</div></div>
-        ${r.sale_date?`<div class="ef"><div class="el">Last Sale</div><div class="ev">${r.sale_date}</div></div>`:''}
-        ${r.care_of?`<div class="ef"><div class="el">Care Of</div><div class="ev">${r.care_of}</div></div>`:''}
-        <div class="ef"><div class="el">Stage</div><div class="ev">
-          <select class="stage-sel" onclick="event.stopPropagation()" onchange="updateStage(${r.id},this.value)">${opts}</select>
-        </div></div>
+      ${propImagesHtml(r.address, r.city)}
+      <div class="eg" style="grid-template-columns:repeat(4,1fr)">
+        ${ef('owner','Owner',r.owner)}
+        ${ef('phone','Phone',r.phone)}
+        ${ef('cell','Cell',r.cell)}
+        ${ef('email','Email',r.email,'email')}
+        ${ef('units','Units',r.units,'number')}
+        ${ef('care_of','Care of',r.care_of)}
+        ${ef('sale_date','Last sale',r.sale_date)}
+        <div class="ef">
+          <div class="el">Stage</div>
+          <select class="stage-sel" onclick="event.stopPropagation()" onchange="updateStage(${r.id},this.value)">${stageOpts}</select>
+        </div>
       </div>
-      ${r.notes?`<div class="notes-box">${r.notes}</div>`:''}
+      <div style="margin-bottom:14px">
+        <div class="el" style="margin-bottom:6px">Notes</div>
+        <div class="ef-wrap">
+          <textarea class="edit-field" rows="3" style="width:100%;font-weight:400;font-size:12px;color:var(--text2)"
+            onclick="event.stopPropagation()"
+            onblur="updateField(${r.id},'notes',this.value,this)"
+          >${r.notes||''}</textarea>
+          <div class="ef-hint">Click away to save</div>
+        </div>
+      </div>
       <div class="ea">
         <button class="btn-teal" onclick="event.stopPropagation();copyOutreach(${r.id})">Copy outreach prompt →</button>
-        <button class="btn-muted" onclick="event.stopPropagation()">Log activity</button>
       </div>
     </div></td></tr>`;
     return[dr,er];
@@ -500,10 +631,15 @@ function buildCityFilter(){
 }
 
 function updateStats(){
-  document.getElementById('s-total').textContent=allContacts.length.toLocaleString();
+  const base = currentView === 'mine'
+    ? allTeamContacts.filter(r => !r.user_id || r.user_id === currentUserId)
+    : currentView === 'team'
+    ? allTeamContacts.filter(r => r.user_id && r.user_id !== currentUserId)
+    : allTeamContacts;
+  document.getElementById('s-total').textContent=base.length.toLocaleString();
   ['warm','contacted','broker','nocall'].forEach(k=>{
     const stage={warm:'Warm',contacted:'Contacted',broker:'Broker',nocall:'No Call'}[k];
-    document.getElementById('s-'+k).textContent=allContacts.filter(r=>r.stage===stage).length.toLocaleString();
+    document.getElementById('s-'+k).textContent=base.filter(r=>r.stage===stage).length.toLocaleString();
   });
 }
 
@@ -592,7 +728,7 @@ async function doImport(){
       phone:String(r[gm('phone')]||'').trim(),cell:String(r[gm('cell')]||'').trim(),
       units:parseInt(r[gm('units')])||0,notes:String(r[gm('notes')]||'').trim(),
       email:String(r[gm('email')]||'').trim(),total_val:0,
-      stage:colorToStage(r.__color||''),excel_color:r.__color||'',source_file:fileName
+      stage:colorToStage(r.__color||''),excel_color:r.__color||'',source_file:fileName,user_id:currentUserId
     };
   }).filter(Boolean);
 
