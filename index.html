@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pavement CRM</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --black: #f4f3f0;
+    --off-black: #ffffff;
+    --surface: #f9f8f6;
+    --surface2: #f0efe9;
+    --border: rgba(0,0,0,0.08);
+    --border2: rgba(0,0,0,0.14);
+    --text: #1a1a1a;
+    --text2: #555;
+    --text3: #999;
+    --accent: #2a6e3f;
+    --accent-dim: rgba(42,110,63,0.08);
+    --warm: #2a2a2a;
+    --warm-bg: rgba(42,42,42,0.08);
+    --contacted: #1a5fa8;
+    --contacted-bg: rgba(26,95,168,0.08);
+    --broker: #a06800;
+    --broker-bg: rgba(255,192,0,0.12);
+    --nocall: #c0000a;
+    --nocall-bg: rgba(192,0,10,0.08);
+    --untagged: #888;
+    --untagged-bg: rgba(0,0,0,0.04);
+    --font: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
+  html, body { height: 100%; background: var(--black); color: var(--text); font-family: var(--font); font-size: 14px; }
+
+  /* ── Layout ── */
+  .app { display: grid; grid-template-rows: 56px 1fr; height: 100vh; }
+
+  /* ── Topbar ── */
+  .topbar {
+    display: flex; align-items: center; gap: 0;
+    padding: 0 24px; border-bottom: 1px solid var(--border);
+    background: var(--off-black);
+  }
+  .logo {
+    font-size: 15px; font-weight: 600; letter-spacing: -0.4px;
+    color: var(--text); margin-right: 32px; display: flex; align-items: center; gap: 8px;
+  }
+  .logo-mark {
+    width: 24px; height: 24px; background: var(--accent);
+    border-radius: 4px; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .logo-mark svg { width: 14px; height: 14px; }
+  .logo span { color: var(--accent); }  .top-stats { display: flex; gap: 0; margin-right: auto; }
+  .top-stat {
+    padding: 0 16px; display: flex; flex-direction: column; justify-content: center;
+    border-right: 1px solid var(--border); height: 56px;
+  }
+  .top-stat:first-child { border-left: 1px solid var(--border); }
+  .top-stat-val { font-size: 16px; font-weight: 600; color: var(--text); line-height: 1; }
+  .top-stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
+  .top-actions { display: flex; gap: 8px; align-items: center; }
+  .btn { padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; }
+  .btn-ghost { background: none; border: 1px solid var(--border2); color: var(--text2); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-accent { background: var(--accent); color: #fff; font-weight: 600; }
+  .btn-accent:hover { background: #1e5530; }
+
+  /* ── Main ── */
+  .main { display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; }
+
+  /* ── Filter bar ── */
+  .filterbar {
+    padding: 12px 24px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    background: var(--off-black);
+  }
+  .filterbar input, .filterbar select {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); border-radius: 6px; padding: 7px 11px; font-size: 12px;
+    outline: none; transition: border-color 0.15s;
+  }
+  .filterbar input { min-width: 220px; }
+  .filterbar input:focus, .filterbar select:focus { border-color: var(--accent); }
+  .filterbar select option { background: var(--surface); }
+  .result-count { font-size: 12px; color: var(--text3); margin-left: auto; }
+
+  /* Legend */
+  .legend { display: flex; gap: 16px; align-items: center; }
+  .leg { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text3); }
+  .leg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── Table ── */
+  .table-wrap { overflow-y: auto; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; background: #fff; }
+  thead th {
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px;
+    color: var(--text3); text-align: left; padding: 10px 14px;
+    border-bottom: 1px solid var(--border2); background: var(--surface);
+    position: sticky; top: 0; z-index: 2; cursor: pointer; user-select: none;
+    white-space: nowrap;
+  }
+  thead th:hover { color: var(--text2); }
+  .col-chev { width: 32px; }
+  .col-num  { width: 42px; }
+  .col-addr { width: 22%; }
+  .col-city { width: 10%; }
+  .col-owner{ width: 18%; }
+  .col-units{ width: 6%; }
+  .col-val  { width: 9%; }
+  .col-phone{ width: 12%; }
+  .col-stage{ width: 11%; }
+  .col-notes{ width: auto; }
+
+  td {
+    font-size: 12px; color: var(--text); padding: 10px 14px;
+    border-bottom: 1px solid var(--border); vertical-align: middle;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  tr.dr { cursor: pointer; transition: background 0.1s; }
+  tr.dr.open td { background: #eef4fb !important; border-bottom: none; }
+  tr:last-child td { border-bottom: none; }
+
+  /* Stage pill */
+  .pill {
+    font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 99px;
+    text-transform: uppercase; letter-spacing: 0.4px; display: inline-block;
+  }
+  .p-warm      { background: var(--warm-bg); color: var(--warm); border: 1px solid rgba(42,42,42,0.25); }
+  .p-contacted { background: var(--contacted-bg); color: var(--contacted); border: 1px solid rgba(26,95,168,0.25); }
+  .p-broker    { background: var(--broker-bg); color: var(--broker); border: 1px solid rgba(160,104,0,0.25); }
+  .p-nocall    { background: var(--nocall-bg); color: var(--nocall); border: 1px solid rgba(192,0,10,0.25); }
+  .p-untagged  { background: var(--untagged-bg); color: var(--untagged); border: 1px solid var(--border); }
+  .p-new       { background: var(--untagged-bg); color: var(--untagged); border: 1px solid var(--border); }
+
+  /* Row stage stripe — colored left border + subtle row tint */
+  tr.dr.stage-warm      td:first-child { border-left: 4px solid var(--warm) !important; }
+  tr.dr.stage-contacted td:first-child { border-left: 4px solid var(--contacted) !important; }
+  tr.dr.stage-broker    td:first-child { border-left: 4px solid #FFC000 !important; }
+  tr.dr.stage-nocall    td:first-child { border-left: 4px solid var(--nocall) !important; }
+  tr.dr.stage-untagged  td:first-child { border-left: 4px solid #ccc !important; }
+  tr.dr.stage-new       td:first-child { border-left: 4px solid #ddd !important; }
+
+  tr.dr.stage-warm      { background: rgba(42,42,42,0.03); }
+  tr.dr.stage-contacted { background: rgba(26,95,168,0.04); }
+  tr.dr.stage-broker    { background: rgba(255,192,0,0.05); }
+  tr.dr.stage-nocall    { background: rgba(192,0,10,0.04); }
+
+  tr.dr.stage-warm:hover      { background: rgba(42,42,42,0.07) !important; }
+  tr.dr.stage-contacted:hover { background: rgba(26,95,168,0.08) !important; }
+  tr.dr.stage-broker:hover    { background: rgba(255,192,0,0.09) !important; }
+  tr.dr.stage-nocall:hover    { background: rgba(192,0,10,0.07) !important; }
+  tr.dr:hover                 { background: var(--surface2); }
+
+  /* Expand row */
+  .er td { padding: 0; border-bottom: 1px solid var(--border2); background: #eef4fb !important; }
+  .ei { padding: 16px 24px; }
+  .eg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+  .ef .el { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .ef .ev { font-size: 13px; font-weight: 500; color: var(--text); }
+  .ef .ev.link { color: var(--contacted); }
+  .notes-box {
+    font-size: 12px; color: var(--text2); line-height: 1.6;
+    padding: 10px 14px; background: #fff; border-radius: 6px;
+    margin-bottom: 14px; border-left: 3px solid var(--border2);
+  }
+  .ea { display: flex; gap: 8px; }
+  .btn-teal { background: rgba(42,110,63,0.1); color: var(--accent); border: 1px solid rgba(42,110,63,0.25); border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 500; cursor: pointer; }
+  .btn-teal:hover { background: rgba(42,110,63,0.18); }
+  .btn-muted { background: none; border: 1px solid var(--border2); color: var(--text3); border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+  .btn-muted:hover { color: var(--text2); }
+
+  .stage-sel {
+    background: #fff; border: 1px solid var(--border2); color: var(--text);
+    border-radius: 4px; padding: 3px 6px; font-size: 11px; cursor: pointer;
+  }
+  .stage-sel:focus { outline: none; border-color: var(--accent); }
+
+  .chev { font-size: 9px; color: var(--text3); margin-right: 4px; display: inline-block; transition: transform 0.15s; }
+  .chev.o { transform: rotate(90deg); }
+
+  /* ── Pager ── */
+  .pager {
+    padding: 10px 24px; border-top: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px; justify-content: flex-end;
+    background: var(--surface);
+  }
+  .pager button {
+    background: #fff; border: 1px solid var(--border2); color: var(--text2);
+    border-radius: 5px; padding: 5px 12px; font-size: 12px; cursor: pointer;
+  }
+  .pager button:hover { border-color: var(--accent); color: var(--accent); }
+  .pager button:disabled { opacity: 0.3; cursor: default; }
+  .pager span { font-size: 12px; color: var(--text3); }
+
+  /* ── Upload modal ── */
+  .modal-bg {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+    z-index: 100; align-items: center; justify-content: center;
+  }
+  .modal-bg.show { display: flex; }
+  .modal {
+    background: #fff; border: 1px solid var(--border2);
+    border-radius: 12px; padding: 28px; width: 520px; max-width: 95vw;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  }
+  .modal h2 { font-size: 16px; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+  .modal p { font-size: 12px; color: var(--text2); margin-bottom: 20px; }
+  .drop-zone {
+    border: 1.5px dashed var(--border2); border-radius: 8px;
+    padding: 40px 24px; text-align: center; cursor: pointer;
+    transition: all 0.15s; margin-bottom: 16px; background: var(--surface);
+  }
+  .drop-zone:hover, .drop-zone.drag { border-color: var(--accent); background: rgba(42,110,63,0.05); }
+  .drop-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; color: var(--text); }
+  .drop-sub { font-size: 12px; color: var(--text3); }
+  .map-section { margin-bottom: 16px; }
+  .map-section h3 { font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .map-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .map-field label { display: block; font-size: 11px; color: var(--text3); margin-bottom: 4px; }
+  .map-field select { width: 100%; background: var(--surface); border: 1px solid var(--border2); color: var(--text); border-radius: 5px; padding: 6px 8px; font-size: 12px; }
+  .modal-footer { display: flex; gap: 8px; justify-content: flex-end; }
+  .import-log { font-size: 11px; color: var(--text2); margin-top: 12px; min-height: 20px; }
+  .import-log.ok { color: var(--accent); }
+  .import-log.err { color: var(--nocall); }
+
+  /* Loading */
+  .loading { text-align: center; padding: 60px; color: var(--text3); }
+  .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; margin-bottom: 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty { text-align: center; padding: 60px; color: var(--text3); font-size: 13px; }
+
+  /* Saving indicator */
+  .save-toast {
+    position: fixed; bottom: 20px; right: 20px; background: var(--accent);
+    border: none; color: #fff; padding: 8px 16px;
+    border-radius: 6px; font-size: 12px; font-weight: 500; opacity: 0;
+    transition: opacity 0.2s; pointer-events: none; z-index: 200;
+  }
+  .save-toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1" y="6" width="12" height="2" rx="1" fill="#ffffff"/>
+          <rect x="1" y="10" width="12" height="2" rx="1" fill="#ffffff"/>
+          <rect x="1" y="2" width="12" height="2" rx="1" fill="#ffffff"/>
+        </svg>
+      </div>
+      Pavement <span>CRM</span>
+    </div>
+    <div class="top-stats" id="top-stats">
+      <div class="top-stat"><div class="top-stat-val" id="stat-total">—</div><div class="top-stat-label">Total</div></div>
+      <div class="top-stat"><div class="top-stat-val" id="stat-warm">—</div><div class="top-stat-label">Warm</div></div>
+      <div class="top-stat"><div class="top-stat-val" id="stat-contacted">—</div><div class="top-stat-label">Contacted</div></div>
+      <div class="top-stat"><div class="top-stat-val" id="stat-broker">—</div><div class="top-stat-label">Broker</div></div>
+      <div class="top-stat"><div class="top-stat-val" id="stat-nocall">—</div><div class="top-stat-label">No Call</div></div>
+    </div>
+    <div class="top-actions">
+      <button class="btn btn-ghost" onclick="showUpload()">+ Import Excel</button>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="filterbar">
+      <input type="text" id="srch" placeholder="Search address, owner, city, notes..." oninput="go()">
+      <select id="fcity" onchange="go()"><option value="">All cities</option></select>
+      <select id="fstage" onchange="go()">
+        <option value="">All stages</option>
+        <option>Warm</option><option>Contacted</option><option>Broker</option>
+        <option>No Call</option><option>Untagged</option><option>New</option>
+      </select>
+      <select id="funits" onchange="go()">
+        <option value="">All sizes</option>
+        <option value="1-9">1–9 units</option>
+        <option value="10-49">10–49 units</option>
+        <option value="50-99">50–99 units</option>
+        <option value="100+">100+ units</option>
+      </select>
+      <div class="legend">
+        <div class="leg"><div class="leg-dot" style="background:var(--warm)"></div>Warm</div>
+        <div class="leg"><div class="leg-dot" style="background:var(--contacted)"></div>Contacted</div>
+        <div class="leg"><div class="leg-dot" style="background:var(--broker)"></div>Broker</div>
+        <div class="leg"><div class="leg-dot" style="background:var(--nocall)"></div>No Call</div>
+      </div>
+      <span class="result-count" id="rcount"></span>
+    </div>
+
+    <div class="table-wrap" id="table-wrap">
+      <div class="loading"><div class="spinner"></div><br>Loading from Supabase...</div>
+    </div>
+
+    <div class="pager">
+      <button id="pprev" onclick="pg(-1)">← Prev</button>
+      <span id="pginfo"></span>
+      <button id="pnext" onclick="pg(1)">Next →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <h2>Import Excel Database</h2>
+    <p>Drop your .xlsx or .csv file. New contacts are added, existing ones updated. All cities merge automatically.</p>
+    <input type="file" id="file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFile(this)">
+    <div class="drop-zone" id="drop-zone"
+      onclick="document.getElementById('file-input').click()"
+      ondragover="event.preventDefault();this.classList.add('drag')"
+      ondragleave="this.classList.remove('drag')"
+      ondrop="handleDrop(event)">
+      <div class="drop-title">Drop file here or click to browse</div>
+      <div class="drop-sub">.xlsx · .xls · .csv supported</div>
+    </div>
+    <div class="map-section" id="map-section" style="display:none">
+      <h3>Map your columns</h3>
+      <div class="map-grid" id="map-grid"></div>
+    </div>
+    <div class="import-log" id="import-log"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeUpload()">Cancel</button>
+      <button class="btn btn-accent" id="import-btn" style="display:none" onclick="doImport()">Import contacts</button>
+    </div>
+  </div>
+</div>
+
+<div class="save-toast" id="save-toast">Saved</div>
+
+<script>
+const SUPABASE_URL = 'https://xvhlgqyjrsskzhroaidl.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2aGxncXlqcnNza3pocm9haWRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NjY3MzIsImV4cCI6MjA5MDA0MjczMn0.QTrQxMLdNRoZ47xq2STed9EFzvAx1m4_TRSH6fOlT2w';
+const API = `${SUPABASE_URL}/rest/v1`;
+const HEADERS = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+
+const PERPAGE = 50;
+let allContacts = [];
+let filtered = [];
+let expanded = new Set();
+let page = 0;
+let sortCol = '', sortDir = 1;
+
+// ── Supabase API ──
+async function sbFetch(path, opts = {}) {
+  const r = await fetch(`${API}${path}`, { headers: HEADERS, ...opts });
+  if (!r.ok) throw new Error(await r.text());
+  const t = await r.text();
+  return t ? JSON.parse(t) : null;
+}
+
+async function loadContacts() {
+  document.getElementById('table-wrap').innerHTML = '<div class="loading"><div class="spinner"></div><br>Loading contacts...</div>';
+  try {
+    let all = [], offset = 0, batch = 1000;
+    while (true) {
+      const rows = await sbFetch(`/contacts?select=*&order=city,address&limit=${batch}&offset=${offset}`, { headers: { ...HEADERS, 'Range-Unit': 'items' } });
+      if (!rows || rows.length === 0) break;
+      all = all.concat(rows);
+      if (rows.length < batch) break;
+      offset += batch;
+    }
+    allContacts = all;
+    buildCityFilter();
+    updateStats();
+    go();
+  } catch (e) {
+    document.getElementById('table-wrap').innerHTML = `<div class="empty">Could not load contacts.<br><small>${e.message}</small><br><br><small>Run the SQL schema in Supabase first, then import your Excel file.</small></div>`;
+  }
+}
+
+async function updateStage(id, stage) {
+  try {
+    await sbFetch(`/contacts?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ stage }) });
+    const c = allContacts.find(x => x.id === id);
+    if (c) c.stage = stage;
+    updateStats();
+    render();
+    showToast('Saved');
+  } catch (e) { showToast('Error saving'); }
+}
+
+// ── Color → Stage ──
+function colorToStage(rgb) {
+  if (!rgb || rgb === '00000000' || rgb === 'FFFFFF00' || rgb === 'FFFF00') return 'New';
+  if (rgb === 'FF000000') return 'Warm';
+  const blues = ['FFBDD6EE','FFCFE2F3','FFC9DAF8','FF9FC5E8','FFDEEAF6','FF4472C4','FF5B9BD5','FFA4C2F4'];
+  if (blues.includes(rgb)) return 'Contacted';
+  const oranges = ['FFFFC000','FFED7D31','FFF4B083','FFC55A11','FFFF6600'];
+  if (oranges.includes(rgb)) return 'Broker';
+  const reds = ['FFFF0000','FFC00000','FFFF1F7F','FFFF6FCF','FFFF00FF'];
+  if (reds.includes(rgb)) return 'No Call';
+  const greens = ['FFCCFFCC','FFA8D08D','FFB6D7A8','FFC5E0B3','FFE2EFD9'];
+  if (greens.includes(rgb)) return 'Untagged';
+  return 'New';
+}
+
+// ── Filter & sort ──
+function applyFilters() {
+  const q = (document.getElementById('srch').value || '').toLowerCase();
+  const fc = document.getElementById('fcity').value;
+  const fs = document.getElementById('fstage').value;
+  const fu = document.getElementById('funits').value;
+  filtered = allContacts.filter(r => {
+    if (q && !['address','owner','city','notes'].some(k => (r[k]||'').toLowerCase().includes(q))) return false;
+    if (fc && r.city !== fc) return false;
+    if (fs && r.stage !== fs) return false;
+    if (fu) {
+      const u = r.units || 0;
+      if (fu === '1-9' && !(u >= 1 && u <= 9)) return false;
+      if (fu === '10-49' && !(u >= 10 && u <= 49)) return false;
+      if (fu === '50-99' && !(u >= 50 && u <= 99)) return false;
+      if (fu === '100+' && u < 100) return false;
+    }
+    return true;
+  });
+  if (sortCol) {
+    filtered.sort((a, b) => {
+      let av = a[sortCol] ?? '', bv = b[sortCol] ?? '';
+      return (typeof av === 'string' ? av.localeCompare(bv) : av - bv) * sortDir;
+    });
+  }
+}
+
+function go() { page = 0; applyFilters(); render(); }
+function pg(d) { const tot = Math.ceil(filtered.length / PERPAGE); page = Math.max(0, Math.min(page + d, tot - 1)); render(); }
+
+function sortBy(col) {
+  if (sortCol === col) sortDir *= -1; else { sortCol = col; sortDir = 1; }
+  applyFilters(); render();
+}
+
+// ── Render ──
+function stageClass(s) {
+  const m = { Warm:'warm', Contacted:'contacted', Broker:'broker', 'No Call':'nocall', Untagged:'untagged', New:'new' };
+  return m[s] || 'new';
+}
+function pill(s) { const c = stageClass(s); return `<span class="pill p-${c}">${s||'New'}</span>`; }
+function fmt(v) { if (!v) return '—'; if (v >= 1e6) return '$' + (v/1e6).toFixed(1) + 'M'; if (v >= 1e3) return '$' + (v/1e3).toFixed(0) + 'K'; return '$' + v; }
+
+function render() {
+  document.getElementById('rcount').textContent = filtered.length.toLocaleString() + ' of ' + allContacts.length.toLocaleString();
+  const tot = Math.ceil(filtered.length / PERPAGE);
+  if (page >= tot) page = Math.max(0, tot - 1);
+  const slice = filtered.slice(page * PERPAGE, (page + 1) * PERPAGE);
+  document.getElementById('pginfo').textContent = `Page ${filtered.length ? page + 1 : 0} of ${tot || 0}`;
+  document.getElementById('pprev').disabled = page <= 0;
+  document.getElementById('pnext').disabled = page >= tot - 1;
+
+  const wrap = document.getElementById('table-wrap');
+  if (!slice.length) {
+    wrap.innerHTML = '<div class="empty">No contacts match your filters.</div>';
+    return;
+  }
+
+  const stageOpts = ['New','Warm','Contacted','Broker','No Call','Untagged'].map(s => `<option>${s}</option>`).join('');
+
+  wrap.innerHTML = `<table>
+    <thead><tr>
+      <th class="col-chev"></th>
+      <th class="col-num">#</th>
+      <th class="col-addr" onclick="sortBy('address')">Address</th>
+      <th class="col-city" onclick="sortBy('city')">City</th>
+      <th class="col-owner" onclick="sortBy('owner')">Owner</th>
+      <th class="col-units" onclick="sortBy('units')">Units</th>
+      <th class="col-val" onclick="sortBy('total_val')">Assessed</th>
+      <th class="col-phone">Phone</th>
+      <th class="col-stage" onclick="sortBy('stage')">Stage</th>
+      <th class="col-notes">Notes</th>
+    </tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>`;
+
+  document.getElementById('tbody').innerHTML = slice.flatMap((r, i) => {
+    const isOpen = expanded.has(r.id);
+    const notePrev = r.notes ? r.notes.slice(0, 40) + (r.notes.length > 40 ? '…' : '') : '—';
+    const opts = ['New','Warm','Contacted','Broker','No Call','Untagged'].map(s => `<option${r.stage===s?' selected':''}>${s}</option>`).join('');
+
+    const dr = `<tr class="dr stage-${stageClass(r.stage)}${isOpen?' open':''}" onclick="toggle(${r.id})">
+      <td style="padding-left:12px"><span class="chev${isOpen?' o':''}">▶</span></td>
+      <td style="color:var(--text3);font-size:11px">${page*PERPAGE+i+1}</td>
+      <td style="font-weight:500">${r.address||''}</td>
+      <td style="color:var(--text2)">${r.city||''}</td>
+      <td style="overflow:hidden;text-overflow:ellipsis">${r.owner||'—'}</td>
+      <td style="text-align:center;color:var(--text2)">${r.units||'—'}</td>
+      <td style="color:var(--text3);font-size:11px">${fmt(r.total_val)}</td>
+      <td style="color:var(--contacted);font-size:11px">${r.phone||r.cell||'—'}</td>
+      <td onclick="event.stopPropagation()">${pill(r.stage)}</td>
+      <td style="color:var(--text3);font-size:11px">${notePrev}</td>
+    </tr>`;
+
+    if (!isOpen) return [dr];
+
+    const opts = ['New','Warm','Contacted','Broker','No Call','Untagged'].map(s => `<option${r.stage===s?' selected':''}>${s}</option>`).join('');
+    const er = `<tr class="er"><td colspan="10"><div class="ei">
+      <div class="eg">
+        <div class="ef"><div class="el">Owner</div><div class="ev">${r.owner||'—'}</div></div>
+        ${r.phone ? `<div class="ef"><div class="el">Phone</div><div class="ev">${r.phone}</div></div>` : ''}
+        ${r.cell ? `<div class="ef"><div class="el">Cell</div><div class="ev">${r.cell}</div></div>` : ''}
+        ${r.email ? `<div class="ef"><div class="el">Email</div><div class="ev link">${r.email}</div></div>` : ''}
+        <div class="ef"><div class="el">Units</div><div class="ev">${r.units||'—'}</div></div>
+        <div class="ef"><div class="el">Assessed</div><div class="ev">${fmt(r.total_val)}</div></div>
+        ${r.sale_date ? `<div class="ef"><div class="el">Last Sale</div><div class="ev">${r.sale_date}</div></div>` : ''}
+        ${r.care_of ? `<div class="ef"><div class="el">Care Of</div><div class="ev">${r.care_of}</div></div>` : ''}
+        <div class="ef"><div class="el">Stage</div><div class="ev">
+          <select class="stage-sel" onchange="updateStage(${r.id},this.value)" style="font-size:12px;padding:4px 8px;">${opts}</select>
+        </div></div>
+      </div>
+      ${r.notes ? `<div class="notes-box">${r.notes}</div>` : ''}
+      <div class="ea">
+        <button class="btn-teal" onclick="event.stopPropagation();draftOutreach(${r.id})">Draft outreach →</button>
+        <button class="btn-muted" onclick="event.stopPropagation()">Log activity</button>
+      </div>
+    </div></td></tr>`;
+    return [dr, er];
+  }).join('');
+}
+
+function toggle(id) { if (expanded.has(id)) expanded.delete(id); else expanded.add(id); render(); }
+
+function draftOutreach(id) {
+  const r = allContacts.find(x => x.id === id);
+  if (!r) return;
+  const msg = `Draft a professional real estate outreach message for:\nOwner: ${r.owner}\nProperty: ${r.address}, ${r.city}\nUnits: ${r.units}\nStage: ${r.stage}\nNotes: ${r.notes || 'none'}\n\nKeep it brief, direct, and focused on acquisition.`;
+  navigator.clipboard?.writeText(msg);
+  showToast('Prompt copied — paste into Claude');
+}
+
+// ── City filter & stats ──
+function buildCityFilter() {
+  const cities = [...new Set(allContacts.map(r => r.city).filter(Boolean))].sort();
+  const sel = document.getElementById('fcity');
+  sel.innerHTML = '<option value="">All cities</option>' + cities.map(c => `<option>${c}</option>`).join('');
+}
+
+function updateStats() {
+  document.getElementById('stat-total').textContent = allContacts.length.toLocaleString();
+  document.getElementById('stat-warm').textContent = allContacts.filter(r => r.stage === 'Warm').length.toLocaleString();
+  document.getElementById('stat-contacted').textContent = allContacts.filter(r => r.stage === 'Contacted').length.toLocaleString();
+  document.getElementById('stat-broker').textContent = allContacts.filter(r => r.stage === 'Broker').length.toLocaleString();
+  document.getElementById('stat-nocall').textContent = allContacts.filter(r => r.stage === 'No Call').length.toLocaleString();
+}
+
+// ── Toast ──
+function showToast(msg) {
+  const t = document.getElementById('save-toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+// ── Upload modal ──
+let rawRows = [], detectedCols = [], fileName = '';
+
+function showUpload() { document.getElementById('modal-bg').classList.add('show'); }
+function closeUpload() {
+  document.getElementById('modal-bg').classList.remove('show');
+  document.getElementById('map-section').style.display = 'none';
+  document.getElementById('import-btn').style.display = 'none';
+  document.getElementById('import-log').textContent = '';
+  document.getElementById('drop-zone').style.display = 'block';
+  rawRows = []; detectedCols = [];
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag');
+  if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
+}
+function handleFile(inp) { if (inp.files[0]) processFile(inp.files[0]); }
+
+function processFile(file) {
+  fileName = file.name;
+  const ext = file.name.split('.').pop().toLowerCase();
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    let rows = [];
+    if (ext === 'csv') {
+      const lines = e.target.result.split('\n').filter(l => l.trim());
+      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g,''));
+      detectedCols = headers;
+      rows = lines.slice(1).map(line => {
+        const vals = line.split(',').map(v => v.trim().replace(/"/g,''));
+        const obj = {}; headers.forEach((h,i) => obj[h] = vals[i]||''); return obj;
+      });
+    } else {
+      const wb = XLSX.read(e.target.result, { type: 'array', cellStyles: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      detectedCols = rows.length ? Object.keys(rows[0]) : [];
+      // Extract fill colors
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+      for (let R = range.s.r + 1; R <= range.e.r; R++) {
+        const ri = R - range.s.r - 1;
+        if (!rows[ri]) continue;
+        const cell = ws[XLSX.utils.encode_cell({r: R, c: 0})];
+        let rgb = '00000000';
+        if (cell && cell.s && cell.s.fgColor) {
+          rgb = cell.s.fgColor.rgb || cell.s.fgColor.argb || '00000000';
+          if (rgb.length === 6) rgb = 'FF' + rgb;
+        }
+        rows[ri].__color = rgb;
+      }
+    }
+    rawRows = rows.filter(r => {
+      const addr = r[detectedCols[0]] || '';
+      return String(addr).trim().length > 3;
+    });
+    showMapping();
+  };
+  if (ext === 'csv') reader.readAsText(file);
+  else reader.readAsArrayBuffer(file);
+}
+
+function showMapping() {
+  document.getElementById('drop-zone').style.display = 'none';
+  document.getElementById('map-section').style.display = 'block';
+  document.getElementById('import-btn').style.display = 'block';
+  const opts = ['<option value="">(skip)</option>', ...detectedCols.map(c => `<option value="${c}">${c}</option>`)].join('');
+  const fields = [
+    { key: 'address', label: 'Address column' },
+    { key: 'city', label: 'City column' },
+    { key: 'owner', label: 'Owner name' },
+    { key: 'phone', label: 'Phone' },
+    { key: 'cell', label: 'Cell' },
+    { key: 'units', label: 'Units' },
+    { key: 'notes', label: 'Notes' },
+    { key: 'email', label: 'Email' },
+  ];
+  document.getElementById('map-grid').innerHTML = fields.map(f => {
+    const auto = detectedCols.find(c => c.toLowerCase().includes(f.key)) || '';
+    return `<div class="map-field">
+      <label>${f.label}</label>
+      <select id="m-${f.key}">${opts.replace(`value="${auto}"`, `value="${auto}" selected`)}</select>
+    </div>`;
+  }).join('');
+  document.getElementById('import-log').textContent = `${rawRows.length} rows detected in "${fileName}"`;
+}
+
+function safeStr(v) { const s = String(v ?? '').trim(); return s === 'None' ? '' : s; }
+function safeFloat(v) { try { return parseFloat(v) || 0; } catch { return 0; } }
+
+async function doImport() {
+  const btn = document.getElementById('import-btn');
+  const log = document.getElementById('import-log');
+  btn.disabled = true; btn.textContent = 'Importing...';
+
+  const gm = k => document.getElementById('m-' + k)?.value || '';
+  const contacts = rawRows.map((r, i) => {
+    const addr = safeStr(r[gm('address')] || r[detectedCols[0]]);
+    if (!addr) return null;
+    const stage = colorToStage(r.__color || '00000000');
+    return {
+      address: addr,
+      city: safeStr(r[gm('city')]),
+      owner: safeStr(r[gm('owner')]),
+      phone: safeStr(r[gm('phone')]),
+      cell: safeStr(r[gm('cell')]),
+      units: parseInt(safeFloat(r[gm('units')])) || 0,
+      notes: safeStr(r[gm('notes')]),
+      email: safeStr(r[gm('email')]),
+      total_val: 0,
+      stage,
+      excel_color: r.__color || '',
+      source_file: fileName,
+    };
+  }).filter(Boolean);
+
+  // Upsert in batches of 200
+  const BATCH = 200;
+  let done = 0, errors = 0;
+  try {
+    for (let i = 0; i < contacts.length; i += BATCH) {
+      const batch = contacts.slice(i, i + BATCH);
+      const resp = await fetch(`${API}/contacts`, {
+        method: 'POST',
+        headers: { ...HEADERS, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify(batch)
+      });
+      if (!resp.ok) { errors++; console.error(await resp.text()); }
+      else done += batch.length;
+      log.textContent = `Importing... ${Math.min(i + BATCH, contacts.length)} / ${contacts.length}`;
+    }
+    log.className = 'import-log ok';
+    log.textContent = `✓ ${done} contacts imported. ${errors ? errors + ' errors.' : ''}`;
+    await loadContacts();
+    setTimeout(closeUpload, 1500);
+  } catch (e) {
+    log.className = 'import-log err';
+    log.textContent = 'Import failed: ' + e.message;
+  }
+  btn.disabled = false; btn.textContent = 'Import contacts';
+}
+
+// ── Init ──
+loadContacts();
+</script>
+</body>
+</html>
