@@ -166,7 +166,7 @@
 
   /* Expand */
   .er td { padding: 0; border-bottom: 1px solid var(--border2); }
-  .ei { padding: 16px 24px; background: #eef4fb; display: grid; grid-template-columns: 1fr 280px; gap: 16px; align-items: start; }
+  .ei { padding: 16px 24px; background: #f0f5fb; display: grid; grid-template-columns: 1fr 280px; gap: 16px; align-items: start; }
   .eg { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 14px; }
   .ef .el { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
   .ef .ev { font-size: 13px; font-weight: 500; color: var(--text); }
@@ -182,13 +182,13 @@
 
   /* Editable fields */
   .edit-field {
-    width: 100%; padding: 6px 8px; border: 1px solid transparent;
+    width: 100%; padding: 6px 8px; border: 1px solid var(--border2);
     border-radius: 5px; font-size: 13px; font-weight: 500; color: var(--text);
-    background: transparent; font-family: var(--font); transition: all 0.15s;
+    background: #fff; font-family: var(--font); transition: all 0.15s;
     cursor: text;
   }
-  .edit-field:hover { border-color: var(--border2); background: #fff; }
-  .edit-field:focus { outline: none; border-color: var(--accent); background: #fff; box-shadow: 0 0 0 3px rgba(42,110,63,0.08); }
+  .edit-field:hover { border-color: var(--accent); }
+  .edit-field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(42,110,63,0.08); }
   .edit-field.saving { border-color: var(--accent); opacity: 0.7; }
   textarea.edit-field { resize: vertical; min-height: 70px; line-height: 1.5; font-weight: 400; }
   .ef-wrap { position: relative; }
