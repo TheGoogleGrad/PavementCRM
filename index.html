@@ -552,15 +552,16 @@ function render() {
     const isOpen=expanded.has(r.id);
     const np=r.notes?r.notes.slice(0,42)+(r.notes.length>42?'…':''):'—';
     const opts=['New','Warm','Contacted','Broker','No Call','Untagged'].map(s=>`<option${r.stage===s?' selected':''}>${s}</option>`).join('');
+    const ownerBadge = currentView==='all' ? (r.user_id===currentUserId ? '<span class="owner-badge ob-mine">mine</span>' : '<span class="owner-badge ob-other">team</span>') : '';
     const dr=`<tr class="dr s-${sc(r.stage)}${isOpen?' open':''}" onclick="toggle(${r.id})">
-      <td style="padding-left:10px"><span class="chev${isOpen?' o':''}">▶</span></td>
+      <td style="padding-left:10px"><span class="chev${isOpen?' o':''}">&#9658;</span></td>
       <td style="color:var(--text3);font-size:11px">${page*PERPAGE+i+1}</td>
-      <td style="font-weight:500">${r.address||''}${currentView==='all'?(r.user_id===currentUserId?'<span class="owner-badge ob-mine">mine</span>':'<span class="owner-badge ob-other">team</span>'):''}${'</td>'}
+      <td style="font-weight:500">${r.address||''}${ownerBadge}</td>
       <td style="color:var(--text2)">${r.city||''}</td>
-      <td style="overflow:hidden;text-overflow:ellipsis">${r.owner||'—'}</td>
-      <td style="text-align:center;color:var(--text2)">${r.units||'—'}</td>
+      <td style="overflow:hidden;text-overflow:ellipsis">${r.owner||'&mdash;'}</td>
+      <td style="text-align:center;color:var(--text2)">${r.units||'&mdash;'}</td>
       <td style="color:var(--text3);font-size:11px">${fmt(r.total_val)}</td>
-      <td style="color:var(--contacted);font-size:11px">${r.phone||r.cell||'—'}</td>
+      <td style="color:var(--contacted);font-size:11px">${r.phone||r.cell||'&mdash;'}</td>
       <td>${pill(r.stage)}</td>
       <td style="color:var(--text3);font-size:11px">${np}</td>
     </tr>`;
@@ -579,7 +580,7 @@ function render() {
       return `<div class="ef">
         <div class="el">${label}</div>
         <div class="ef-wrap">
-          <input type="${type}" class="edit-field" value="${val.replace(/"/g,'&quot;')}"
+          <input type="${type}" class="edit-field" value="${String(val).replace(/"/g,'&quot;')}"
             onclick="event.stopPropagation()"
             onblur="updateField(${r.id},'${field}',this.value,this)"
             onkeydown="if(event.key==='Enter'){this.blur();}"
@@ -589,7 +590,7 @@ function render() {
     };
     const stageOpts=['New','Warm','Contacted','Broker','No Call','Untagged'].map(s=>`<option${r.stage===s?' selected':''}>${s}</option>`).join('');
     const er=`<tr class="er"><td colspan="10"><div class="ei">
-      ${propImagesHtml(r.address, r.city)}
+      ${(()=>{try{return propImagesHtml(r.address,r.city)}catch(e){return ""}})()}
       <div class="eg" style="grid-template-columns:repeat(4,1fr)">
         ${ef('owner','Owner',r.owner)}
         ${ef('phone','Phone',r.phone)}
