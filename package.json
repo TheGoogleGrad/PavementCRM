@@ -1,0 +1,7 @@
+{
+  "name": "pavement-crm",
+  "version": "1.0.0",
+  "dependencies": {
+    "twilio": "^4.23.0"
+  }
+}
