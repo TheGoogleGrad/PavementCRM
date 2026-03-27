@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pavement CRM</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@twilio/voice-sdk@2.10.0/dist/twilio.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -240,6 +241,38 @@
   .spinner { display: inline-block; width: 22px; height: 22px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; margin-bottom: 12px; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .empty { text-align: center; padding: 60px; color: var(--text3); font-size: 13px; line-height: 1.8; }
+  /* ── Dialer ── */
+  .dialer-bar { display:none; position:fixed; bottom:0; left:0; right:0; background:#1a1a1a; color:#fff; padding:12px 24px; z-index:500; align-items:center; gap:16px; box-shadow:0 -4px 20px rgba(0,0,0,0.25); }
+  .dialer-bar.show { display:flex; }
+  .dialer-status { font-size:13px; font-weight:500; flex:1; }
+  .dialer-contact { font-size:12px; color:#aaa; }
+  .dialer-timer { font-size:13px; font-weight:600; color:var(--accent); min-width:48px; font-variant-numeric:tabular-nums; }
+  .dialer-btn { padding:8px 16px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; border:none; transition:all 0.15s; }
+  .dialer-btn-call { background:var(--accent); color:#fff; }
+  .dialer-btn-call:hover { background:#1e5530; }
+  .dialer-btn-hang { background:#c0000a; color:#fff; }
+  .dialer-btn-hang:hover { background:#9a0008; }
+  .dialer-btn-skip { background:none; border:1px solid #555; color:#aaa; }
+  .dialer-btn-skip:hover { border-color:#aaa; color:#fff; }
+  .dialer-btn-stop { background:none; border:1px solid #555; color:#aaa; }
+  .dialer-btn-stop:hover { border-color:#c0000a; color:#c0000a; }
+  .dialer-note { background:#2a2a2a; border:1px solid #444; color:#fff; border-radius:5px; padding:6px 10px; font-size:12px; font-family:var(--font); width:220px; }
+  .dialer-note::placeholder { color:#666; }
+  .dialer-progress { font-size:11px; color:#888; white-space:nowrap; }
+  .call-btn { background:var(--accent); color:#fff; border:none; border-radius:6px; padding:5px 12px; font-size:12px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:5px; transition:background 0.15s; }
+  .call-btn:hover { background:#1e5530; }
+  .call-btn-row { position:absolute; right:8px; top:50%; transform:translateY(-50%); }
+  .power-btn { background:var(--accent); color:#fff; border:none; border-radius:6px; padding:7px 14px; font-size:12px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px; }
+  .power-btn:hover { background:#1e5530; }
+  .power-btn.active { background:#c0000a; }
+  .power-btn.active:hover { background:#9a0008; }
+  .outcome-btns { display:flex; gap:6px; flex-wrap:wrap; }
+  .outcome-btn { padding:5px 10px; border-radius:5px; font-size:11px; font-weight:600; cursor:pointer; border:1px solid; transition:all 0.15s; }
+  .ob-answer  { background:rgba(42,110,63,0.1); color:var(--accent); border-color:rgba(42,110,63,0.3); }
+  .ob-vm      { background:rgba(160,104,0,0.1); color:var(--broker); border-color:rgba(160,104,0,0.3); }
+  .ob-noanswer{ background:rgba(0,0,0,0.06); color:var(--text2); border-color:var(--border2); }
+  .ob-nocall  { background:rgba(192,0,10,0.08); color:var(--nocall); border-color:rgba(192,0,10,0.25); }
+
   .save-toast { position: fixed; bottom: 20px; right: 20px; background: var(--accent); color: #fff; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 500; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 500; }
   .save-toast.show { opacity: 1; }
 </style>
@@ -289,6 +322,7 @@
       </div>
       <span class="user-chip" id="user-chip"></span>
       <button class="btn btn-ghost" onclick="showUpload()">+ Import Excel</button>
+      <button class="power-btn" id="power-btn" onclick="togglePowerDialer()">&#128222; Start Dialing</button>
       <button class="btn-signout" onclick="doSignOut()">Sign out</button>
     </div>
   </div>
@@ -354,6 +388,26 @@
 </div>
 
 <div class="save-toast" id="save-toast"></div>
+
+<!-- Dialer Bar -->
+<div class="dialer-bar" id="dialer-bar">
+  <div>
+    <div class="dialer-status" id="dialer-status">Ready</div>
+    <div class="dialer-contact" id="dialer-contact"></div>
+  </div>
+  <div class="dialer-timer" id="dialer-timer">0:00</div>
+  <input class="dialer-note" id="dialer-note" placeholder="Call notes...">
+  <div class="outcome-btns" id="outcome-btns" style="display:none">
+    <button class="outcome-btn ob-answer"   onclick="logOutcome('Warm','Answered')">Answered</button>
+    <button class="outcome-btn ob-vm"       onclick="logOutcome('Contacted','Voicemail')">Voicemail</button>
+    <button class="outcome-btn ob-noanswer" onclick="logOutcome('Contacted','No Answer')">No Answer</button>
+    <button class="outcome-btn ob-nocall"   onclick="logOutcome('No Call','No Call')">No Call</button>
+  </div>
+  <div class="dialer-progress" id="dialer-progress"></div>
+  <button class="dialer-btn dialer-btn-hang" id="btn-hang" style="display:none" onclick="hangUp()">Hang Up</button>
+  <button class="dialer-btn dialer-btn-skip" id="btn-skip" style="display:none" onclick="skipContact()">Skip</button>
+  <button class="dialer-btn dialer-btn-stop" id="btn-stop" style="display:none" onclick="stopDialer()">Stop</button>
+</div>
 
 <script>
 // ── Supabase init ──
@@ -566,7 +620,10 @@ function render() {
       <td style="color:var(--text3);font-size:11px">${fmt(r.total_val)}</td>
       <td style="color:var(--contacted);font-size:11px">${r.phone||r.cell||'&mdash;'}</td>
       <td>${pill(r.stage)}</td>
-      <td style="color:var(--text3);font-size:11px">${np}</td>
+      <td style="color:var(--text3);font-size:11px;position:relative">
+        ${np}
+        ${(r.phone||r.cell)?`<button class="call-btn call-btn-row" onclick="event.stopPropagation();callContact(${r.id})" title="Call ${r.phone||r.cell}">&#128222;</button>`:''}
+      </td>
     </tr>`;
     if(!isOpen)return[dr];
     const ef=(field, label, value, type='text')=>{
@@ -792,6 +849,207 @@ async function doImport(){
     log.className='import-log err';
     log.textContent='Import failed: '+e.message;
     btn.disabled=false;btn.textContent='Import contacts';
+  }
+}
+
+
+// ── Twilio Dialer ──
+let twilioDevice = null;
+let twilioToken  = null;
+let activeCall   = null;
+let dialerQueue  = [];
+let dialerIndex  = 0;
+let dialerActive = false;
+let dialerPaused = false;
+let currentCallId = null;
+let callTimer    = null;
+let callSeconds  = 0;
+let noAnswerTimer = null;
+
+async function initTwilio() {
+  if (twilioDevice) return true;
+  try {
+    const r = await fetch('/api/token');
+    const { token, error } = await r.json();
+    if (error) throw new Error(error);
+    twilioToken = token;
+    const { Device } = Twilio;
+    twilioDevice = new Device(token, { logLevel: 1 });
+    twilioDevice.on('error', e => { toast('Twilio error: ' + e.message); stopDialer(); });
+    twilioDevice.on('disconnect', () => onCallEnd());
+    await twilioDevice.register();
+    return true;
+  } catch(e) {
+    toast('Could not connect to dialer: ' + e.message);
+    return false;
+  }
+}
+
+async function callContact(id) {
+  const r = allTeamContacts.find(x => x.id === id);
+  if (!r) return;
+  const num = r.phone || r.cell;
+  if (!num) { toast('No phone number for this contact'); return; }
+  const ok = await initTwilio();
+  if (!ok) return;
+  currentCallId = id;
+  dialerActive = false;
+  await placeCall(r);
+}
+
+async function placeCall(r) {
+  const num = r.phone || r.cell;
+  if (!num) { if (dialerActive) nextContact(); return; }
+
+  setDialerBar(true);
+  document.getElementById('dialer-status').textContent = 'Calling...';
+  document.getElementById('dialer-contact').textContent = (r.owner||'') + ' — ' + (r.address||'');
+  document.getElementById('btn-hang').style.display = 'flex';
+  document.getElementById('btn-skip').style.display = dialerActive ? 'flex' : 'none';
+  document.getElementById('btn-stop').style.display = dialerActive ? 'flex' : 'none';
+  document.getElementById('outcome-btns').style.display = 'none';
+  document.getElementById('dialer-note').value = '';
+  currentCallId = r.id;
+
+  try {
+    activeCall = await twilioDevice.connect({ params: { To: num } });
+    activeCall.on('accept', () => {
+      document.getElementById('dialer-status').textContent = 'Connected';
+      startTimer();
+      clearTimeout(noAnswerTimer);
+    });
+    activeCall.on('disconnect', () => onCallEnd());
+    activeCall.on('error', e => { toast('Call error: ' + e.message); onCallEnd(); });
+
+    // Auto no-answer after 22 seconds if not accepted
+    noAnswerTimer = setTimeout(() => {
+      if (activeCall) {
+        document.getElementById('dialer-status').textContent = 'No answer';
+        hangUp();
+        if (dialerActive) setTimeout(() => logOutcome('Contacted','No Answer'), 500);
+      }
+    }, 22000);
+  } catch(e) {
+    toast('Could not place call: ' + e.message);
+    onCallEnd();
+  }
+}
+
+function hangUp() {
+  clearTimeout(noAnswerTimer);
+  if (activeCall) { activeCall.disconnect(); activeCall = null; }
+  stopTimer();
+  if (!dialerActive) {
+    document.getElementById('dialer-status').textContent = 'Call ended — log outcome:';
+    document.getElementById('btn-hang').style.display = 'none';
+    document.getElementById('outcome-btns').style.display = 'flex';
+  }
+}
+
+function onCallEnd() {
+  clearTimeout(noAnswerTimer);
+  stopTimer();
+  activeCall = null;
+  if (dialerActive) {
+    document.getElementById('dialer-status').textContent = 'Log outcome:';
+    document.getElementById('btn-hang').style.display = 'none';
+    document.getElementById('outcome-btns').style.display = 'flex';
+  }
+}
+
+async function logOutcome(stage, note) {
+  if (currentCallId) {
+    const callNote = document.getElementById('dialer-note').value.trim();
+    const fullNote = note + (callNote ? ': ' + callNote : '');
+    await updateStage(currentCallId, stage);
+    const existing = allTeamContacts.find(x => x.id === currentCallId);
+    if (existing) {
+      const newNotes = [existing.notes, new Date().toLocaleDateString() + ' - ' + fullNote].filter(Boolean).join(' | ');
+      await updateField(currentCallId, 'notes', newNotes, null);
+    }
+    toast('Logged: ' + note);
+  }
+  document.getElementById('outcome-btns').style.display = 'none';
+  document.getElementById('dialer-note').value = '';
+  if (dialerActive) {
+    setTimeout(() => nextContact(), 800);
+  } else {
+    setDialerBar(false);
+  }
+}
+
+// ── Power Dialer ──
+async function togglePowerDialer() {
+  if (dialerActive) { stopDialer(); return; }
+  const ok = await initTwilio();
+  if (!ok) return;
+  dialerQueue = filtered.filter(r => r.phone || r.cell);
+  if (!dialerQueue.length) { toast('No contacts with phone numbers in current view'); return; }
+  dialerIndex = 0;
+  dialerActive = true;
+  document.getElementById('power-btn').textContent = '⏹ Stop Dialing';
+  document.getElementById('power-btn').classList.add('active');
+  setDialerBar(true);
+  updateDialerProgress();
+  await placeCall(dialerQueue[dialerIndex]);
+}
+
+async function nextContact() {
+  dialerIndex++;
+  if (dialerIndex >= dialerQueue.length) { stopDialer(); toast('Dialing session complete!'); return; }
+  updateDialerProgress();
+  await placeCall(dialerQueue[dialerIndex]);
+}
+
+function skipContact() {
+  clearTimeout(noAnswerTimer);
+  if (activeCall) { activeCall.disconnect(); activeCall = null; }
+  stopTimer();
+  nextContact();
+}
+
+function stopDialer() {
+  dialerActive = false;
+  clearTimeout(noAnswerTimer);
+  if (activeCall) { activeCall.disconnect(); activeCall = null; }
+  stopTimer();
+  document.getElementById('power-btn').textContent = '📞 Start Dialing';
+  document.getElementById('power-btn').classList.remove('active');
+  setDialerBar(false);
+}
+
+function updateDialerProgress() {
+  const prog = document.getElementById('dialer-progress');
+  if (prog) prog.textContent = (dialerIndex+1) + ' / ' + dialerQueue.length + ' contacts';
+}
+
+// ── Timer ──
+function startTimer() {
+  callSeconds = 0;
+  updateTimerDisplay();
+  callTimer = setInterval(() => { callSeconds++; updateTimerDisplay(); }, 1000);
+}
+function stopTimer() {
+  clearInterval(callTimer);
+  callTimer = null;
+}
+function updateTimerDisplay() {
+  const m = Math.floor(callSeconds/60);
+  const s = String(callSeconds%60).padStart(2,'0');
+  const el = document.getElementById('dialer-timer');
+  if (el) el.textContent = m + ':' + s;
+}
+
+function setDialerBar(show) {
+  const bar = document.getElementById('dialer-bar');
+  if (show) bar.classList.add('show'); else {
+    bar.classList.remove('show');
+    document.getElementById('dialer-timer').textContent = '0:00';
+    document.getElementById('dialer-progress').textContent = '';
+    document.getElementById('btn-hang').style.display = 'none';
+    document.getElementById('btn-skip').style.display = 'none';
+    document.getElementById('btn-stop').style.display = 'none';
+    document.getElementById('outcome-btns').style.display = 'none';
   }
 }
 </script>
