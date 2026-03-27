@@ -241,6 +241,30 @@
   .spinner { display: inline-block; width: 22px; height: 22px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; margin-bottom: 12px; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .empty { text-align: center; padding: 60px; color: var(--text3); font-size: 13px; line-height: 1.8; }
+  /* ── Session Stats ── */
+  .session-panel {
+    display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+    background:#fff; border:1px solid var(--border2); border-radius:14px;
+    padding:28px 32px; width:420px; max-width:95vw; z-index:600;
+    box-shadow:0 12px 48px rgba(0,0,0,0.15);
+  }
+  .session-panel.show { display:block; }
+  .session-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.3); z-index:599; }
+  .session-overlay.show { display:block; }
+  .session-title { font-size:16px; font-weight:600; margin-bottom:4px; }
+  .session-sub { font-size:12px; color:var(--text3); margin-bottom:24px; }
+  .session-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px; }
+  .session-stat { background:var(--surface); border-radius:8px; padding:14px 16px; border:1px solid var(--border); }
+  .session-stat-val { font-size:28px; font-weight:600; color:var(--text); line-height:1; margin-bottom:4px; }
+  .session-stat-label { font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; }
+  .session-stat.highlight { background:var(--accent-light); border-color:rgba(42,110,63,0.2); }
+  .session-stat.highlight .session-stat-val { color:var(--accent); }
+  .session-bar { margin-bottom:20px; }
+  .session-bar-label { display:flex; justify-content:space-between; font-size:11px; color:var(--text3); margin-bottom:6px; }
+  .session-bar-track { height:8px; background:var(--surface2); border-radius:99px; overflow:hidden; }
+  .session-bar-fill { height:100%; border-radius:99px; background:var(--accent); transition:width 0.4s; }
+  .session-footer { display:flex; justify-content:flex-end; gap:8px; padding-top:16px; border-top:1px solid var(--border); }
+
   /* ── Dialer ── */
   .dialer-bar { display:none; position:fixed; bottom:0; left:0; right:0; background:#1a1a1a; color:#fff; padding:12px 24px; z-index:500; align-items:center; gap:16px; box-shadow:0 -4px 20px rgba(0,0,0,0.25); }
   .dialer-bar.show { display:flex; }
@@ -388,6 +412,54 @@
 </div>
 
 <div class="save-toast" id="save-toast"></div>
+
+<!-- Session Overlay -->
+<div class="session-overlay" id="session-overlay" onclick="closeSession()"></div>
+
+<!-- Session Stats Panel -->
+<div class="session-panel" id="session-panel">
+  <div class="session-title">Session Summary</div>
+  <div class="session-sub" id="session-duration"></div>
+  <div class="session-grid">
+    <div class="session-stat highlight">
+      <div class="session-stat-val" id="ss-total">0</div>
+      <div class="session-stat-label">Calls made</div>
+    </div>
+    <div class="session-stat">
+      <div class="session-stat-val" id="ss-answered">0</div>
+      <div class="session-stat-label">Answered</div>
+    </div>
+    <div class="session-stat">
+      <div class="session-stat-val" id="ss-voicemail">0</div>
+      <div class="session-stat-label">Voicemails</div>
+    </div>
+    <div class="session-stat">
+      <div class="session-stat-val" id="ss-noanswer">0</div>
+      <div class="session-stat-label">No answer</div>
+    </div>
+    <div class="session-stat">
+      <div class="session-stat-val" id="ss-talktime">0:00</div>
+      <div class="session-stat-label">Total talk time</div>
+    </div>
+    <div class="session-stat highlight">
+      <div class="session-stat-val" id="ss-warm">0</div>
+      <div class="session-stat-label">Moved to Warm</div>
+    </div>
+  </div>
+  <div class="session-bar">
+    <div class="session-bar-label">
+      <span>Answer rate</span>
+      <span id="ss-rate">0%</span>
+    </div>
+    <div class="session-bar-track">
+      <div class="session-bar-fill" id="ss-bar" style="width:0%"></div>
+    </div>
+  </div>
+  <div class="session-footer">
+    <button class="btn btn-ghost" onclick="closeSession()">Close</button>
+    <button class="btn btn-accent" onclick="copySessionSummary()">Copy summary</button>
+  </div>
+</div>
 
 <!-- Dialer Bar -->
 <div class="dialer-bar" id="dialer-bar">
@@ -857,6 +929,91 @@ async function doImport(){
 }
 
 
+// ── Session Tracking ──
+let session = {
+  startTime: null,
+  total: 0,
+  answered: 0,
+  voicemail: 0,
+  noAnswer: 0,
+  noCalls: 0,
+  talkSeconds: 0,
+  warm: 0,
+};
+
+function resetSession() {
+  session = { startTime: Date.now(), total:0, answered:0, voicemail:0, noAnswer:0, noCalls:0, talkSeconds:0, warm:0 };
+}
+
+function recordCall() {
+  session.total++;
+  updateDialerLiveStats();
+}
+
+function recordOutcomeStats(outcomeNote, stage) {
+  session.talkSeconds += callSeconds;
+  if (outcomeNote === 'Answered') session.answered++;
+  else if (outcomeNote === 'Voicemail') session.voicemail++;
+  else if (outcomeNote === 'No Answer') session.noAnswer++;
+  else if (outcomeNote === 'No Call') session.noCalls++;
+  if (stage === 'Warm') session.warm++;
+  updateDialerLiveStats();
+}
+
+function updateDialerLiveStats() {
+  const el = document.getElementById('dialer-progress');
+  if (!el) return;
+  const rate = session.total > 0 ? Math.round(session.answered / session.total * 100) : 0;
+  el.textContent = (dialerActive ? (dialerIndex+1) + ' / ' + dialerQueue.length + ' — ' : '') +
+    session.total + ' calls · ' + session.answered + ' answered · ' + rate + '% rate';
+}
+
+function showSessionSummary() {
+  const elapsed = session.startTime ? Math.floor((Date.now() - session.startTime) / 1000) : 0;
+  const em = Math.floor(elapsed/60), es = elapsed%60;
+  const tm = Math.floor(session.talkSeconds/60), ts = session.talkSeconds%60;
+  const rate = session.total > 0 ? Math.round(session.answered / session.total * 100) : 0;
+
+  document.getElementById('session-duration').textContent =
+    'Session length: ' + em + 'm ' + es + 's';
+  document.getElementById('ss-total').textContent = session.total;
+  document.getElementById('ss-answered').textContent = session.answered;
+  document.getElementById('ss-voicemail').textContent = session.voicemail;
+  document.getElementById('ss-noanswer').textContent = session.noAnswer;
+  document.getElementById('ss-talktime').textContent = tm + ':' + String(ts).padStart(2,'0');
+  document.getElementById('ss-warm').textContent = session.warm;
+  document.getElementById('ss-rate').textContent = rate + '%';
+  document.getElementById('ss-bar').style.width = rate + '%';
+
+  document.getElementById('session-overlay').classList.add('show');
+  document.getElementById('session-panel').classList.add('show');
+}
+
+function closeSession() {
+  document.getElementById('session-overlay').classList.remove('show');
+  document.getElementById('session-panel').classList.remove('show');
+}
+
+function copySessionSummary() {
+  const rate = session.total > 0 ? Math.round(session.answered / session.total * 100) : 0;
+  const tm = Math.floor(session.talkSeconds/60), ts = session.talkSeconds%60;
+  const elapsed = session.startTime ? Math.floor((Date.now() - session.startTime) / 1000) : 0;
+  const em = Math.floor(elapsed/60), es = elapsed%60;
+  const lines = [];
+  lines.push('Pavement CRM - Call Session Summary');
+  lines.push('------------------------------------');
+  lines.push('Session length:  ' + em + 'm ' + es + 's');
+  lines.push('Total calls:     ' + session.total);
+  lines.push('Answered:        ' + session.answered);
+  lines.push('Voicemails:      ' + session.voicemail);
+  lines.push('No answer:       ' + session.noAnswer);
+  lines.push('Talk time:       ' + tm + 'm ' + String(ts).padStart(2,'0') + 's');
+  lines.push('Answer rate:     ' + rate + '%');
+  lines.push('Moved to Warm:   ' + session.warm);
+  const text = lines.join(String.fromCharCode(10));
+  navigator.clipboard?.writeText(text).then(() => toast('Summary copied!')).catch(() => toast('Copy failed'));
+}
+
 // ── Twilio Dialer ──
 let twilioDevice = null;
 let twilioToken  = null;
@@ -914,6 +1071,7 @@ async function placeCall(r) {
   document.getElementById('outcome-btns').style.display = 'none';
   document.getElementById('dialer-note').value = '';
   currentCallId = r.id;
+  recordCall();
 
   try {
     activeCall = await twilioDevice.connect({ params: { To: num } });
@@ -962,6 +1120,7 @@ function onCallEnd() {
 }
 
 async function logOutcome(stage, note) {
+  recordOutcomeStats(note, stage);
   if (currentCallId) {
     const callNote = document.getElementById('dialer-note').value.trim();
     const fullNote = note + (callNote ? ': ' + callNote : '');
@@ -991,6 +1150,7 @@ async function togglePowerDialer() {
   if (!dialerQueue.length) { toast('No contacts with phone numbers in current view'); return; }
   dialerIndex = 0;
   dialerActive = true;
+  resetSession();
   document.getElementById('power-btn').textContent = '⏹ Stop Dialing';
   document.getElementById('power-btn').classList.add('active');
   setDialerBar(true);
@@ -1014,6 +1174,7 @@ function skipContact() {
 
 function stopDialer() {
   dialerActive = false;
+  if (session.total > 0) setTimeout(showSessionSummary, 600);
   clearTimeout(noAnswerTimer);
   if (activeCall) { activeCall.disconnect(); activeCall = null; }
   stopTimer();
