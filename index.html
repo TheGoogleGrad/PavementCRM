@@ -177,6 +177,9 @@
   .btn-teal:hover { background: rgba(42,110,63,0.15); }
   .btn-muted { background: none; border: 1px solid var(--border2); color: var(--text3); border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
   .btn-muted:hover { color: var(--text2); }
+  .btn-search { background: none; border: 1px solid #d0d5dd; color: var(--text2); border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.15s; }
+  .btn-search:hover { border-color: var(--contacted); color: var(--contacted); background: var(--contacted-bg); }
+  .search-links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
   .stage-sel { background: #fff; border: 1px solid var(--border2); color: var(--text); border-radius: 5px; padding: 5px 8px; font-size: 12px; cursor: pointer; font-family: var(--font); }
   .stage-sel:focus { outline: none; border-color: var(--accent); }
 
@@ -614,7 +617,16 @@ function render() {
             <div class="ef-hint">Click away to save</div>
           </div>
         </div>
-        <div class="ea">
+        <div style="margin-top:10px">
+          ${(!r.phone && !r.cell) ? `<div style="font-size:11px;color:var(--nocall);font-weight:500;margin-bottom:6px">&#9888; No phone number — search:</div>` : `<div style="font-size:11px;color:var(--text3);margin-bottom:6px">Find more numbers:</div>`}
+          <div class="search-links">
+            <button class="btn-search" onclick="event.stopPropagation();openSearch(${r.id},'fastpeople')">&#128269; FastPeopleSearch</button>
+            <button class="btn-search" onclick="event.stopPropagation();openSearch(${r.id},'trupeople')">&#128269; TruePeopleSearch</button>
+            <button class="btn-search" onclick="event.stopPropagation();openSearch(${r.id},'whitepages')">&#128269; Whitepages</button>
+            <button class="btn-search" onclick="event.stopPropagation();openSearch(${r.id},'google')">&#128269; Google</button>
+          </div>
+        </div>
+        <div class="ea" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
           <button class="btn-teal" onclick="event.stopPropagation();copyOutreach(${r.id})">Copy outreach prompt →</button>
         </div>
       </div>
@@ -622,6 +634,30 @@ function render() {
     </div></td></tr>`;
     return[dr,er];
   }).join('');
+}
+
+function skipTrace(id) {
+  const r = allTeamContacts.find(x => x.id === id);
+  if (!r) return;
+  const name = encodeURIComponent((r.owner || '').trim());
+  const addr = encodeURIComponent((r.address || '').trim());
+  const city = encodeURIComponent((r.city || '').trim());
+  const fullAddr = encodeURIComponent(((r.address || '') + ' ' + (r.city || '') + ' CA').trim());
+  window.open('https://www.fastpeoplesearch.com/name/' + name, '_blank');
+}
+
+function openSearch(id, site) {
+  const r = allTeamContacts.find(x => x.id === id);
+  if (!r) return;
+  const name = encodeURIComponent((r.owner || '').replace(/,/g,' ').trim());
+  const fullAddr = encodeURIComponent(((r.address||'') + ' ' + (r.city||'') + ' CA').trim());
+  const urls = {
+    fastpeople: 'https://www.fastpeoplesearch.com/name/' + name,
+    trupeople:  'https://www.truepeoplesearch.com/results?name=' + name + '&citystatezip=' + encodeURIComponent((r.city||'') + ' CA'),
+    whitepages: 'https://www.whitepages.com/name/' + name,
+    google:     'https://www.google.com/search?q=' + name + '+' + encodeURIComponent((r.address||'') + ' ' + (r.city||'')) + '+phone+number',
+  };
+  window.open(urls[site] || urls.fastpeople, '_blank');
 }
 
 function copyOutreach(id) {
