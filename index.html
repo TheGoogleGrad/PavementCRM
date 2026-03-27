@@ -166,7 +166,7 @@
 
   /* Expand */
   .er td { padding: 0; border-bottom: 1px solid var(--border2); }
-  .ei { padding: 16px 24px; background: #eef4fb; }
+  .ei { padding: 16px 24px; background: #eef4fb; display: grid; grid-template-columns: 1fr 280px; gap: 16px; align-items: start; }
   .eg { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 14px; }
   .ef .el { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
   .ef .ev { font-size: 13px; font-weight: 500; color: var(--text); }
@@ -198,8 +198,8 @@
   .chev.o { transform: rotate(90deg); }
 
   /* Property images */
-  .prop-images { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
-  .prop-img-wrap { position: relative; background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; overflow: hidden; aspect-ratio: 16/9; }
+  .prop-images { display: flex; flex-direction: column; gap: 8px; }
+  .prop-img-wrap { position: relative; background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; overflow: hidden; height: 160px; }
   .prop-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .prop-img-label { position: absolute; bottom: 0; left: 0; right: 0; padding: 5px 10px; background: rgba(0,0,0,0.5); color: #fff; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
   .prop-img-placeholder { width: 100%; height: 100%; min-height: 120px; display: flex; align-items: center; justify-content: center; color: var(--text3); font-size: 11px; }
@@ -590,33 +590,35 @@ function render() {
     };
     const stageOpts=['New','Warm','Contacted','Broker','No Call','Untagged'].map(s=>`<option${r.stage===s?' selected':''}>${s}</option>`).join('');
     const er=`<tr class="er"><td colspan="10"><div class="ei">
-      ${(()=>{try{return propImagesHtml(r.address,r.city)}catch(e){return ""}})()}
-      <div class="eg" style="grid-template-columns:repeat(4,1fr)">
-        ${ef('owner','Owner',r.owner)}
-        ${ef('phone','Phone',r.phone)}
-        ${ef('cell','Cell',r.cell)}
-        ${ef('email','Email',r.email,'email')}
-        ${ef('units','Units',r.units,'number')}
-        ${ef('care_of','Care of',r.care_of)}
-        ${ef('sale_date','Last sale',r.sale_date)}
-        <div class="ef">
-          <div class="el">Stage</div>
-          <select class="stage-sel" onclick="event.stopPropagation()" onchange="updateStage(${r.id},this.value)">${stageOpts}</select>
+      <div>
+        <div class="eg" style="grid-template-columns:repeat(2,1fr)">
+          ${ef('owner','Owner',r.owner)}
+          ${ef('phone','Phone',r.phone)}
+          ${ef('cell','Cell',r.cell)}
+          ${ef('email','Email',r.email,'email')}
+          ${ef('units','Units',r.units,'number')}
+          ${ef('care_of','Care of',r.care_of)}
+          ${ef('sale_date','Last sale',r.sale_date)}
+          <div class="ef">
+            <div class="el">Stage</div>
+            <select class="stage-sel" onclick="event.stopPropagation()" onchange="updateStage(${r.id},this.value)">${stageOpts}</select>
+          </div>
+        </div>
+        <div style="margin-bottom:12px;margin-top:4px">
+          <div class="el" style="margin-bottom:6px">Notes</div>
+          <div class="ef-wrap">
+            <textarea class="edit-field" rows="3" style="width:100%;font-weight:400;font-size:12px;color:var(--text2)"
+              onclick="event.stopPropagation()"
+              onblur="updateField(${r.id},'notes',this.value,this)"
+            >${r.notes||''}</textarea>
+            <div class="ef-hint">Click away to save</div>
+          </div>
+        </div>
+        <div class="ea">
+          <button class="btn-teal" onclick="event.stopPropagation();copyOutreach(${r.id})">Copy outreach prompt →</button>
         </div>
       </div>
-      <div style="margin-bottom:14px">
-        <div class="el" style="margin-bottom:6px">Notes</div>
-        <div class="ef-wrap">
-          <textarea class="edit-field" rows="3" style="width:100%;font-weight:400;font-size:12px;color:var(--text2)"
-            onclick="event.stopPropagation()"
-            onblur="updateField(${r.id},'notes',this.value,this)"
-          >${r.notes||''}</textarea>
-          <div class="ef-hint">Click away to save</div>
-        </div>
-      </div>
-      <div class="ea">
-        <button class="btn-teal" onclick="event.stopPropagation();copyOutreach(${r.id})">Copy outreach prompt →</button>
-      </div>
+      <div>${(()=>{try{return propImagesHtml(r.address,r.city)}catch(e){return ""}})()}</div>
     </div></td></tr>`;
     return[dr,er];
   }).join('');
