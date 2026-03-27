@@ -364,21 +364,25 @@ const sb = createClient(SURL, SKEY);
 const GMAPS_KEY = 'AIzaSyBWBbEgn2L0d4e2SibwTvXRXIwSxl7Dqf0';
 
 function propImagesHtml(address, city) {
-  const fullAddr = encodeURIComponent((address + ', ' + city));
+  const fullAddr = encodeURIComponent(address + ', ' + city);
   const mapsLink = 'https://www.google.com/maps/search/?api=1&query=' + fullAddr;
   const svUrl = 'https://maps.googleapis.com/maps/api/streetview?size=600x340&location=' + fullAddr + '&key=' + GMAPS_KEY + '&return_error_code=true';
   const satUrl = 'https://maps.googleapis.com/maps/api/staticmap?center=' + fullAddr + '&zoom=17&size=600x340&maptype=satellite&key=' + GMAPS_KEY;
-  return '<div class="prop-images">' +
-    '<div class="prop-img-wrap">' +
-    '<img src="' + svUrl + '" alt="Street View" onerror="this.style.display='none';this.nextSibling.style.display='flex'" loading="lazy">' +
-    '<div class="prop-img-placeholder" style="display:none">No street view available</div>' +
-    '<div class="prop-img-label">Street view</div>' +
-    '<a class="prop-open-link" href="' + mapsLink + '" target="_blank" onclick="event.stopPropagation()">Open in Maps u2197</a>' +
-    '</div>' +
-    '<div class="prop-img-wrap">' +
-    '<img src="' + satUrl + '" alt="Satellite" loading="lazy">' +
-    '<div class="prop-img-label">Satellite</div>' +
-    '</div></div>';
+  const errHandler = 'this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'';
+  return [
+    '<div class="prop-images">',
+    '<div class="prop-img-wrap">',
+    '<img src="' + svUrl + '" alt="Street View" onerror="' + errHandler + '" loading="lazy">',
+    '<div class="prop-img-placeholder" style="display:none">No street view available</div>',
+    '<div class="prop-img-label">Street view</div>',
+    '<a class="prop-open-link" href="' + mapsLink + '" target="_blank" onclick="event.stopPropagation()">Open in Maps ↗</a>',
+    '</div>',
+    '<div class="prop-img-wrap">',
+    '<img src="' + satUrl + '" alt="Satellite" loading="lazy">',
+    '<div class="prop-img-label">Satellite</div>',
+    '</div>',
+    '</div>'
+  ].join('');
 }
 // ── Auth ──
 async function doLogin() {
