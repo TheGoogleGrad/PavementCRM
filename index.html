@@ -916,17 +916,26 @@ async function doImport(){
     };
   }).filter(Boolean);
 
+  // Deduplicate by address+owner — keep last occurrence
+  const seen = new Map();
+  contacts.forEach(c => {
+    const key = (c.address + '|' + c.owner).toLowerCase().trim();
+    seen.set(key, c);
+  });
+  const deduped = Array.from(seen.values());
+  console.log('Contacts after dedup:', deduped.length, 'from', contacts.length);
+
   let done=0;
   try{
     const BATCH=200;
-    for(let i=0;i<contacts.length;i+=BATCH){
-      const{error}=await sb.from('contacts').upsert(contacts.slice(i,i+BATCH),{onConflict:'address,owner',ignoreDuplicates:false});
+    for(let i=0;i<deduped.length;i+=BATCH){
+      const{error}=await sb.from('contacts').upsert(deduped.slice(i,i+BATCH),{onConflict:'address,owner',ignoreDuplicates:false});
       if(error)throw error;
-      done+=Math.min(BATCH,contacts.length-i);
-      log.textContent=`Importing... ${done} / ${contacts.length}`;
+      done+=Math.min(BATCH,deduped.length-i);
+      log.textContent=`Importing... ${done} / ${deduped.length}`;
     }
     log.className='import-log ok';
-    log.textContent=`✓ ${done} contacts imported successfully.`;
+    log.textContent=`✓ ${done} contacts imported. ${contacts.length - deduped.length > 0 ? '(' + (contacts.length - deduped.length) + ' duplicates skipped)' : ''}`;
     await loadContacts();
     setTimeout(closeUpload,1500);
   }catch(e){
