@@ -735,6 +735,10 @@ function render() {
           ${ef('units','Units',r.units,'number')}
           ${ef('care_of','Care of',r.care_of)}
           ${ef('sale_date','Last sale',r.sale_date)}
+        ${ef('owner_address','Owner address',r.owner_address)}
+        ${ef('owner_city','Owner city',r.owner_city)}
+        ${ef('owner_state','Owner state',r.owner_state)}
+        ${ef('owner_zip','Owner zip',r.owner_zip)}
           <div class="ef">
             <div class="el">Stage</div>
             <select class="stage-sel" onclick="event.stopPropagation()" onchange="updateStage(${r.id},this.value)">${stageOpts}</select>
@@ -883,7 +887,7 @@ function showMapping(){
   document.getElementById('map-section').style.display='block';
   document.getElementById('import-btn').style.display='block';
   const opts='<option value="">(skip)</option>'+detectedCols.map(c=>`<option value="${c}">${c}</option>`).join('');
-  const fields=[{k:'address',l:'Address'},{k:'city',l:'City'},{k:'owner',l:'Owner name'},{k:'phone',l:'Phone'},{k:'cell',l:'Cell'},{k:'units',l:'Units'},{k:'notes',l:'Notes'},{k:'email',l:'Email'}];
+  const fields=[{k:'address',l:'Address'},{k:'city',l:'City'},{k:'owner',l:'Owner name'},{k:'phone',l:'Phone'},{k:'cell',l:'Cell'},{k:'units',l:'Units'},{k:'notes',l:'Notes'},{k:'email',l:'Email'},{k:'owner_address',l:'Owner address'},{k:'owner_city',l:'Owner city'},{k:'owner_state',l:'Owner state'},{k:'owner_zip',l:'Owner zip'}];
   document.getElementById('map-grid').innerHTML=fields.map(f=>{
     const auto=detectedCols.find(c=>c.toLowerCase().includes(f.k))||'';
     return`<div class="map-field"><label>${f.l}</label><select id="m-${f.k}">${opts.replace(`value="${auto}"`,`value="${auto}" selected`)}</select></div>`;
@@ -904,7 +908,11 @@ async function doImport(){
       phone:String(r[gm('phone')]||'').trim(),cell:String(r[gm('cell')]||'').trim(),
       units:parseInt(r[gm('units')])||0,notes:String(r[gm('notes')]||'').trim(),
       email:String(r[gm('email')]||'').trim(),total_val:0,
-      stage:colorToStage(r.__color||''),excel_color:r.__color||'',source_file:fileName,user_id:currentUserId
+      stage:colorToStage(r.__color||''),excel_color:r.__color||'',source_file:fileName,user_id:currentUserId,
+      owner_address:String(r[gm('owner_address')]||'').trim(),
+      owner_city:String(r[gm('owner_city')]||'').trim(),
+      owner_state:String(r[gm('owner_state')]||'').trim(),
+      owner_zip:String(r[gm('owner_zip')]||'').trim()
     };
   }).filter(Boolean);
 
